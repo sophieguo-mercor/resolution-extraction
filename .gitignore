@@ -12,6 +12,12 @@ results/*
 results/raw/*
 !results/raw/.gitkeep
 
+# Visualization build artifacts — regenerable, and derived from the PII-bearing
+# .xls (they embed customer company names + effort aggregates). Rebuild with
+# `make explorer`.
+explorer.html
+merged_data.json
+
 # Python
 __pycache__/
 *.py[cod]

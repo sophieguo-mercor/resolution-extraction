@@ -23,6 +23,9 @@ resolution-extraction/
 ├── prompts.py            prompt construction — tune this
 ├── extract.py            batch runner: notes → structured steps
 ├── aggregate.py          steps → per-workflow variance metrics
+├── run.py                end-to-end orchestrator: .xls → explorer.html
+├── build_explorer.py     the React/JSX explorer template (edit the UI here)
+├── build_html.py         renders template + data → one self-contained .html
 ├── tests/
 │   └── test_aggregate.py smoke test for the metric maths
 ├── data/                 put the .xls here (gitignored — contains PII)
@@ -33,6 +36,10 @@ resolution-extraction/
     ├── scorecard.csv
     └── patterns.json
 ```
+
+Generated build artifacts — `explorer.html` and `merged_data.json` — are gitignored:
+they're regenerable and derived from the PII-bearing `.xls` (they embed customer
+company names and effort aggregates), so they're treated as output, not source.
 
 Extraction runs on the **Anthropic Message Batches API**: the whole corpus is packed
 into a single batch (12 tickets per request), submitted once, then collected. That's
@@ -184,6 +191,42 @@ A raw record:
            {"action": "reset", "object": "password", "system": "active_directory"},
            {"action": "inform_customer", "object": "password", "system": "unknown"}]}
 ```
+
+---
+
+## Visualization — the HTML explorer
+
+`run.py` joins the effort data from the `.xls` (AHT, first-response rate, effort
+distribution per workflow and per company) with the process-variance metrics from
+`scorecard.json` / `patterns.json`, and renders a single self-contained
+`explorer.html` — an interactive React page that opens in any browser.
+
+```bash
+# Build from the results already in results/ (no API spend):
+make explorer            # → explorer.html
+
+# Equivalently:
+python run.py --html-only
+
+# Full pipeline from scratch (extract → aggregate → build):
+python run.py --xls data/<export>.xls          # runs the Batch API extraction
+python run.py --xls data/<export>.xls --dry-run # show the plan, spend nothing
+```
+
+How the build works:
+
+- **`build_explorer.py`** holds the UI as a JSX template string (`TEMPLATE = r'''…'''`)
+  with a `__DATA__` placeholder and `const DATA = __DATA__`. Edit the explorer UI here.
+- **`build_html.py`** regex-extracts that template, injects the merged metrics as JSON
+  in place of `__DATA__`, and wraps it in an HTML page that loads React + Babel from
+  the unpkg CDN (versions pinned). The JSON is embedded with `<` escaped to `<`
+  so no data value can break out of the `<script>` block.
+- The output embeds **only aggregated metrics** — never raw ticket notes — but it does
+  carry customer company names and effort aggregates, so `explorer.html` and the
+  intermediate `merged_data.json` are gitignored. Rebuild them anytime with `make explorer`.
+
+The page is self-contained apart from the two CDN `<script>` tags; to run fully
+offline, swap those for locally-hosted copies of React and Babel.
 
 ---
 

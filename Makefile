@@ -1,5 +1,6 @@
-.PHONY: help install dryrun sample pilot full collect aggregate clean clean-all
+.PHONY: help install dryrun sample pilot full collect aggregate explorer clean clean-all
 
+PYTHON ?= python3
 XLS ?= data/Time_entries_Mercor_v3_workflows_by_company__1_.xls
 WF  ?= Password Reset
 N   ?= 20
@@ -14,6 +15,7 @@ help:
 	@echo "  make full        extract the entire corpus (~10.4k requests)"
 	@echo "  make collect     reconnect to an in-flight batch and write its results"
 	@echo "  make aggregate   compute variance metrics from results/raw/"
+	@echo "  make explorer    build the interactive HTML explorer from existing results"
 	@echo "  make clean       delete computed metrics, keep raw extractions"
 	@echo "  make clean-all   delete everything in results/"
 	@echo ""
@@ -26,22 +28,27 @@ install:
 	pip install -r requirements.txt
 
 dryrun:
-	python extract.py --xls "$(XLS)" --workflows "$(WF)" --sample $(N) --dry-run
+	$(PYTHON) extract.py --xls "$(XLS)" --workflows "$(WF)" --sample $(N) --dry-run
 
 sample:
-	python extract.py --xls "$(XLS)" --workflows "$(WF)" --sample $(N)
+	$(PYTHON) extract.py --xls "$(XLS)" --workflows "$(WF)" --sample $(N)
 
 pilot:
-	python extract.py --xls "$(XLS)" --sample 60
+	$(PYTHON) extract.py --xls "$(XLS)" --sample 60
 
 full:
-	python extract.py --xls "$(XLS)"
+	$(PYTHON) extract.py --xls "$(XLS)"
 
 collect:
-	python extract.py --collect
+	$(PYTHON) extract.py --collect
 
 aggregate:
-	python aggregate.py
+	$(PYTHON) aggregate.py
+
+# Parse the .xls for effort data, join it with results/scorecard.json +
+# patterns.json, and render a single self-contained explorer.html. No API spend.
+explorer:
+	$(PYTHON) run.py --html-only --xls "$(XLS)" --out explorer.html
 
 clean:
 	rm -f results/scorecard.json results/scorecard.csv results/patterns.json
@@ -50,3 +57,4 @@ clean-all:
 	rm -f results/scorecard.json results/scorecard.csv results/patterns.json
 	rm -f results/batch_manifest.json
 	rm -f results/raw/*.jsonl
+	rm -f explorer.html merged_data.json
