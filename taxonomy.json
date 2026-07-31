@@ -1,0 +1,75 @@
+{
+  "_comment": "Controlled vocabulary for resolution-step extraction. The LLM must map every extracted step to one action + one object, and optionally one system. Unknown values are coerced to 'other' during validation. Edit this file to tune granularity, then re-run extract.py on a small --sample to check the mapping still lands well.",
+
+  "phases": {
+    "diagnose": "Finding out what is wrong. No system state changes.",
+    "change": "Actually changing system state. The resolution itself.",
+    "coordinate": "Talking to people: customer, colleagues, vendors.",
+    "admin": "Ticket/administrative overhead, not technical work."
+  },
+
+  "actions": {
+    "investigate":      { "phase": "diagnose",   "desc": "Checked logs, config, portal, monitoring; looked into cause" },
+    "reproduce":        { "phase": "diagnose",   "desc": "Attempted to reproduce or tested to confirm the fault" },
+    "verify":           { "phase": "diagnose",   "desc": "Tested after a change to confirm it works" },
+    "monitor":          { "phase": "diagnose",   "desc": "Left running / watched / waited to see if it recurs" },
+    "triage":           { "phase": "diagnose",   "desc": "Reviewed a security/monitoring alert or report and dispositioned it - benign, false-positive, no incident, no credentials found - with no config change" },
+
+    "reset":            { "phase": "change",     "desc": "Reset a credential, MFA method, or device to a known state" },
+    "create":           { "phase": "change",     "desc": "Created a new object (account, mailbox, group, record, rule)" },
+    "delete":           { "phase": "change",     "desc": "Deleted or removed an object" },
+    "grant":            { "phase": "change",     "desc": "Granted access, permission, membership, or a license" },
+    "revoke":           { "phase": "change",     "desc": "Removed access, permission, membership, or a license" },
+    "install":          { "phase": "change",     "desc": "Installed software, driver, agent, or physical hardware" },
+    "uninstall":        { "phase": "change",     "desc": "Removed software or hardware" },
+    "configure":        { "phase": "change",     "desc": "Changed a setting, policy, rule, or profile" },
+    "update":           { "phase": "change",     "desc": "Applied a patch, firmware, or version upgrade" },
+    "restart":          { "phase": "change",     "desc": "Rebooted or restarted a device, server, service, or session" },
+    "replace":          { "phase": "change",     "desc": "Swapped out physical hardware" },
+    "migrate":          { "phase": "change",     "desc": "Moved data, mailbox, or workload between systems/tenants" },
+    "restore":          { "phase": "change",     "desc": "Restored data or a system from backup" },
+    "run_backup":       { "phase": "change",     "desc": "Manually triggered or re-ran a backup job" },
+    "clean_up":         { "phase": "change",     "desc": "Freed disk space, cleared cache, purged profile/VSS" },
+    "block":            { "phase": "change",     "desc": "Blocked a sender, domain, IP, or account" },
+    "unblock":          { "phase": "change",     "desc": "Unblocked/released a sender, domain, IP, or account" },
+    "sync":             { "phase": "change",     "desc": "Forced a directory or data synchronisation" },
+    "renew":            { "phase": "change",     "desc": "Renewed a certificate, license, domain, or subscription (distinct from a patch/version update)" },
+    "add_exception":    { "phase": "change",     "desc": "Created an allow-list / exclusion / whitelist entry so an alert or block no longer fires" },
+
+    "contact_customer": { "phase": "coordinate", "desc": "Called, emailed, or ran a remote session with the customer" },
+    "inform_customer":  { "phase": "coordinate", "desc": "Sent credentials, instructions, or a status update out" },
+    "escalate_internal":{ "phase": "coordinate", "desc": "Handed off to a colleague, engineer, or internal team" },
+    "escalate_vendor":  { "phase": "coordinate", "desc": "Raised with a supplier or third party" },
+    "await_response":   { "phase": "coordinate", "desc": "Explicitly waiting on customer or third party" },
+    "conduct_training": { "phase": "coordinate", "desc": "Delivered or completed security-awareness training or a workshop (KnowBe4, Phished)" },
+
+    "document":         { "phase": "admin",      "desc": "Wrote up notes, updated documentation or the CMDB" },
+    "order":            { "phase": "admin",      "desc": "Requested a quote, purchase, or extra license" },
+    "schedule":         { "phase": "admin",      "desc": "Planned the work for a later date/window" },
+    "no_action":        { "phase": "admin",      "desc": "Closed with no technical work: duplicate, self-resolved, out of scope" },
+    "resolve_unspecified": { "phase": "admin",   "desc": "Notes state the ticket was resolved but give NO detail about what was done (e.g. 'is opgelost', 'geregeld', 'doorgevoerd'). A coverage marker, not a process step - aggregate.py excludes it from pattern/variance metrics" },
+    "other":            { "phase": "admin",      "desc": "A real action that fits nothing above" }
+  },
+
+  "objects": [
+    "password", "mfa_method", "user_account", "admin_account", "service_account",
+    "mailbox", "shared_mailbox", "distribution_group", "security_group",
+    "license", "permissions", "folder_share", "sharepoint_site", "teams_channel",
+    "device_laptop", "device_desktop", "device_mobile", "printer", "peripheral",
+    "server", "virtual_machine", "avd_session", "application", "driver",
+    "os_patch", "firmware", "vpn", "firewall_rule", "network_switch", "wifi_ap",
+    "dns_record", "ssl_certificate", "domain_name",
+    "backup_job", "disk_space", "email_rule", "spam_filter", "email_message",
+    "phone_extension", "call_flow", "sim_card",
+    "security_alert", "monitoring_alert", "compliance_report", "security_training",
+    "policy", "other"
+  ],
+
+  "systems": [
+    "entra_id", "active_directory", "exchange_online", "m365_admin", "intune",
+    "sharepoint", "teams", "fortigate", "azure", "rmm_datto", "backup_tool",
+    "telephony_platform", "hypervisor", "third_party_saas", "on_prem_server",
+    "defender", "sentinel", "knowbe4",
+    "unknown"
+  ]
+}
