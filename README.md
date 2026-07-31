@@ -1,12 +1,45 @@
 # Resolution-step extraction & process-variance analysis
 
-Turns free-text ticket `Notes` into structured resolution steps, then measures how
-consistently each workflow is actually resolved.
+A full pipeline: it turns free-text ticket `Notes` into structured resolution steps,
+measures how consistently each workflow is actually resolved, and renders the result
+as a single self-contained **interactive HTML explorer**. Spreadsheet in,
+`explorer.html` out — `python run.py --xls data/<export>.xls` runs the whole thing.
 
 The point: n-gram overlap tells you whether tickets use the same *words*. This tells
 you whether they follow the same *process*. Two agents writing "wachtwoord gereset"
 and "nieuw WW ingesteld via AD" share almost no words but perform the same action —
 this pipeline counts them as the same step.
+
+---
+
+## The pipeline
+
+Five stages, orchestrated end to end by `run.py`:
+
+```
+data/*.xls  (SpreadsheetML export)
+   │
+   ├─▶ 1. parse       read the export → per-workflow / per-company effort         [no API]
+   │                  distributions: AHT, first-response rate, tails          (run.py)
+   │
+   ├─▶ 2. extract     Notes → structured resolution steps, one JSONL per        [LLM,
+   │                  workflow, via the Anthropic Batch API              (extract.py)  batch]
+   │
+   ├─▶ 3. aggregate   steps → per-workflow process-variance metrics              [no API]
+   │                  → scorecard.json, patterns.json                  (aggregate.py)
+   │
+   ├─▶ 4. merge       join effort data + scorecard + patterns                    [no API]
+   │                  → merged_data.json                                     (run.py)
+   │
+   └─▶ 5. build       inject merged data into the React template                 [no API]
+                      → explorer.html                 (build_explorer.py + build_html.py)
+```
+
+`python run.py --xls data/<export>.xls` runs all five. Only stage 2 spends money and
+time; it writes to `results/raw/` and is **skipped automatically** once those files
+exist, so stages 3–5 are cheap to iterate. Each stage is also a standalone script, so
+you can run — and re-run — them independently. `python run.py --html-only` rebuilds the
+explorer from existing results without touching the API.
 
 ---
 
@@ -66,6 +99,22 @@ or point `--xls` somewhere else.
 
 ## Run it
 
+### The whole pipeline, one command
+
+```bash
+python run.py --xls data/<export>.xls --dry-run   # show the plan, spend nothing
+python run.py --xls data/<export>.xls             # parse → extract → aggregate → build
+python run.py --html-only                         # rebuild explorer.html only, no API
+```
+
+`run.py` skips the extraction stage automatically when `results/scorecard.json`
+already exists, so re-running it is cheap. **But** the first time through, don't just
+run the whole thing and trust it — extraction quality depends on the taxonomy and
+prompt, and the only way to check that is to read a small sample by hand. Do the
+tuning loop below first, then let `run.py` do the full corpus.
+
+### Stage by stage (the tuning loop)
+
 Either use the Makefile:
 
 ```bash
@@ -75,6 +124,7 @@ make pilot                               # 60 tickets per workflow, ~4.4k reques
 make full                                # entire corpus, ~10.4k requests
 make collect                             # reconnect to an in-flight batch
 make aggregate                           # compute metrics
+make explorer                            # build explorer.html from existing results
 ```
 
 Or call the scripts directly:
@@ -98,6 +148,10 @@ python extract.py
 
 # 6. Compute metrics
 python aggregate.py
+
+# 7. Build the interactive explorer (parses the .xls for effort data, merges it
+#    with the metrics, writes explorer.html — no API spend)
+python run.py --html-only
 ```
 
 ### How a run behaves
@@ -196,22 +250,11 @@ A raw record:
 
 ## Visualization — the HTML explorer
 
-`run.py` joins the effort data from the `.xls` (AHT, first-response rate, effort
-distribution per workflow and per company) with the process-variance metrics from
-`scorecard.json` / `patterns.json`, and renders a single self-contained
-`explorer.html` — an interactive React page that opens in any browser.
-
-```bash
-# Build from the results already in results/ (no API spend):
-make explorer            # → explorer.html
-
-# Equivalently:
-python run.py --html-only
-
-# Full pipeline from scratch (extract → aggregate → build):
-python run.py --xls data/<export>.xls          # runs the Batch API extraction
-python run.py --xls data/<export>.xls --dry-run # show the plan, spend nothing
-```
+Stages 4–5 (`run.py`) join the effort data parsed from the `.xls` (AHT, first-response
+rate, effort distribution per workflow and per company) with the process-variance
+metrics from `scorecard.json` / `patterns.json`, and render a single self-contained
+`explorer.html` — an interactive React page that opens in any browser. Build it with
+`make explorer` or `python run.py --html-only` (see [Run it](#run-it) for the commands).
 
 How the build works:
 
@@ -232,8 +275,10 @@ offline, swap those for locally-hosted copies of React and Babel.
 
 ## Reading the metrics
 
-A **pattern** is the unordered set of `action:object` pairs in one ticket.
-Two tickets share a pattern if they did the same things, regardless of wording or order.
+A **pattern** is the ordered sequence of `action:object` pairs in one ticket (duplicate
+pairs dropped on first occurrence). Two tickets share a pattern if they did the same
+things in the same order, regardless of wording. The order-free view lives in the
+Jaccard metrics below; see [Known limitations](#known-limitations) for the trade-off.
 
 ### Pattern concentration
 | Metric | Meaning | Good |
