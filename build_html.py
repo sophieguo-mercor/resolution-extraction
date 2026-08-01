@@ -59,8 +59,9 @@ HTML_TEMPLATE = """\
   <div id="root"></div>
   <script type="text/babel" data-presets="react">
 {jsx}
-  // Mount
-  const {{ useState }} = React;
+  // Mount — React hooks are destructured from the global at the top of {{jsx}}
+  // (jsx_to_html rewrites the `import ... from "react"` line into a React
+  // destructure), so every hook the template imports is in scope here too.
   const root = ReactDOM.createRoot(document.getElementById('root'));
   root.render(React.createElement(App));
   </script>
@@ -103,18 +104,22 @@ def jsx_to_html(jsx: str) -> str:
     """
     Adapt the JSX for the in-browser Babel environment.
 
-    The Claude.ai artifact renderer pre-imports React hooks for you.
-    In a plain HTML page we have React as a global, so `useState` etc.
-    must be accessed via `React.useState`.  We handle this by adding a
-    destructuring line at the top of the script (in HTML_TEMPLATE) and
-    keeping the `import { useState } from "react"` line — Babel ignores
-    `import` statements when the module is not available and the
-    transformer is configured for browser mode.  Actually, the safest
-    approach is to strip the import line and let the destructuring at the
-    bottom of HTML_TEMPLATE handle it.
+    The Claude.ai artifact renderer pre-imports React hooks for you. In a plain
+    HTML page React is only a UMD global, so an ES `import { useState, useMemo }
+    from "react"` resolves to nothing and the hooks come out undefined — which
+    renders a blank page the moment the component calls one of them.
+
+    So rather than *stripping* that import, we *rewrite* it into a destructure
+    off the React global: `const { useState, useMemo } = React;`. That way every
+    hook the template imports — however many it grows to — is guaranteed to be in
+    scope, with no separate list in HTML_TEMPLATE to keep in sync.
     """
-    # Strip the ES module import — React is a UMD global in the HTML page
-    jsx = re.sub(r'import\s*\{[^}]+\}\s*from\s*["\']react["\'];?\s*\n?', '', jsx)
+    # Rewrite `import { a, b } from "react"` → `const { a, b } = React;`
+    jsx = re.sub(
+        r'import\s*\{([^}]+)\}\s*from\s*["\']react["\'];?',
+        lambda m: f'const {{{m.group(1).strip()}}} = React;',
+        jsx,
+    )
     # Ensure `export default` is removed so App is a plain function in scope
     jsx = re.sub(r'\bexport\s+default\s+', '', jsx)
     return jsx
