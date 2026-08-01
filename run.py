@@ -88,10 +88,11 @@ def parse_spreadsheet(xls_path: str) -> dict:
             for row in table.findall("ss:Row", NS)
         ]
 
-    # ── Workflow Dashboard (category + complexity) ─────────────────────────
+    # ── Workflow Dashboard (category + description + complexity) ───────────
     dash = get_rows(wss["Workflow Dashboard"])[1:]
-    wf_cat = {r[1]: r[0] for r in dash if r[1]}
-    wf_cx  = {r[1]: r[8] for r in dash if r[1]}
+    wf_cat  = {r[1]: r[0] for r in dash if r[1]}
+    wf_desc = {r[1]: r[2] for r in dash if r[1] and len(r) > 2 and r[2]}
+    wf_cx   = {r[1]: r[8] for r in dash if r[1]}
 
     # ── Ticket Detail ──────────────────────────────────────────────────────
     ticket_rows = get_rows(wss["Ticket Detail"])[1:]
@@ -152,11 +153,12 @@ def parse_spreadsheet(xls_path: str) -> dict:
         cat = wf_cat.get(wf, "Other")
         cats.setdefault(cat, []).append(wf)
         workflows[wf] = {
-            "cat": cat,
-            "cx":  wf_cx.get(wf, ""),
-            "g":   stats(allrec),
-            "by":  {c: v for c, v in by_comp.items() if v},
-            "pr":  None,   # filled in by merge step
+            "cat":  cat,
+            "cx":   wf_cx.get(wf, ""),
+            "desc": wf_desc.get(wf, ""),
+            "g":    stats(allrec),
+            "by":   {c: v for c, v in by_comp.items() if v},
+            "pr":   None,   # filled in by merge step
         }
 
     log(f"  → {len(wf_order)} workflows, {len(company_all)} companies, "

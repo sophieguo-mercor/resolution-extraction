@@ -314,7 +314,13 @@ function WorkflowDetail({ wf }) {
         {pr && <span style={{ fontSize:11, marginLeft:8, fontWeight:700, color:procColor(pr.score) }}>· process {pr.score}</span>}
         {isShaky(pr) && <span style={{ fontSize:11, marginLeft:6, color:V("amber") }}>⚠</span>}
       </div>
-      <h2 style={{ color:V("text"), fontSize:17, fontWeight:800, margin:"7px 0 14px", lineHeight:1.25 }}>{wf}</h2>
+      <h2 style={{ color:V("text"), fontSize:17, fontWeight:800, margin:"7px 0 10px", lineHeight:1.25 }}>{wf}</h2>
+
+      {rec.desc && (
+        <div style={{ marginBottom:16, padding:"10px 12px", background:V("subtle"), border:`1px solid ${V("border")}`, borderRadius:6, fontSize:12, lineHeight:1.55, color:V("text2"), maxWidth:640 }}>
+          {rec.desc}
+        </div>
+      )}
 
       <div style={{ display:"flex", background:V("inactive"), borderRadius:7, padding:3, marginBottom:16, width:"fit-content" }}>
         {[["effort","Effort distribution"],["process","Process variance"]].map(([k,l])=>(
