@@ -81,6 +81,14 @@ def run():
     assert r["empty"]["pct_no_action"] == 60.0
     assert r["empty"]["phase_mix"]["admin"] == 100.0
 
+    # The empty "(no action extracted)" pattern must NOT be counted as a route.
+    # The synthetic "empty" workflow is 60 no-step tickets + 40 on a single real
+    # route. If the empty bucket were ranked (the old behaviour) top1_pct would be
+    # 60.0; excluding it, the top route is the 40-ticket one and n_patterns is 1.
+    assert r["empty"]["top1_pct"] == 40.0, r["empty"]["top1_pct"]
+    assert r["empty"]["top3_pct"] == 40.0, r["empty"]["top3_pct"]
+    assert r["empty"]["n_patterns"] == 1, r["empty"]["n_patterns"]
+
     # Phase mix reflects the action types used
     assert r["bimodal"]["phase_mix"]["change"] > 50
     assert r["templated"]["phase_mix"]["coordinate"] > 30

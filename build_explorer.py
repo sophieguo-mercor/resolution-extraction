@@ -218,7 +218,7 @@ function ProcessBlock({ pr }) {
       <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:14 }}>
         <Metric label="Process score" value={pr.score} color={procColor(pr.score)} sub="0-100 · how repeatable" />
         <Metric label="Patterns" value={pr.npat.toLocaleString()} sub={`distinct routes in ${pr.n.toLocaleString()}`} />
-        <Metric label="Top-3 cover" value={`${pr.top3}%`} sub="tickets on 3 routes" />
+        <Metric label="Top-3 cover" value={`${pr.top3}%`} sub="all tickets on top 3 real routes" />
         <Metric label="Mean Jaccard" value={pr.jac.toFixed(2)} color={jacColor(pr.jac)} sub="step overlap, 2 tickets" />
         <Metric label="Steps/ticket" value={pr.steps.toFixed(1)} sub="distinct actions" />
       </div>
@@ -259,7 +259,7 @@ function ProcessBlock({ pr }) {
       <PhaseBar ph={pr.ph} />
 
       <Heading top title="Most common resolution patterns"
-        desc="A pattern is the full set of steps in one ticket. Two tickets share a pattern if the same work was done, whatever the wording or order." />
+        desc="A pattern is the ordered sequence of steps in one ticket. Two tickets share a pattern if the same steps were done in the same order. Tickets with no extractable action are not a route — they're excluded here and shown as 'No action extracted' above." />
       <div style={{ display:"flex", flexDirection:"column", gap:7 }}>
         {pr.pats.map((p, i) => (
           <div key={i} style={{ display:"flex", alignItems:"flex-start", gap:9 }}>
@@ -291,7 +291,9 @@ function ProcessBlock({ pr }) {
 
       <div style={{ fontSize:9.5, color:V("desc"), marginTop:14, paddingTop:10, borderTop:`1px solid ${V("border")}`, lineHeight:1.5 }}>
         Steps were extracted from the Dutch ticket notes by an LLM against a fixed action:object
-        vocabulary, then each ticket reduced to the unordered set of its steps. Order is discarded.
+        vocabulary. Routes are the ordered sequence of a ticket's steps (duplicates dropped on first
+        occurrence); the individual-steps list and the Jaccard metrics are order-free. Tickets with
+        no extractable action are reported as "No action extracted", not counted as a route.
       </div>
     </div>
   );

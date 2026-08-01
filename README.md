@@ -281,11 +281,18 @@ things in the same order, regardless of wording. The order-free view lives in th
 Jaccard metrics below; see [Known limitations](#known-limitations) for the trade-off.
 
 ### Pattern concentration
+
+Measured over **real routes only.** Tickets from which no action could be extracted
+are *not* a route — they're excluded from every metric here and reported separately as
+`pct_no_action`. (Otherwise a poorly-documented workflow whose most common "route" is
+the absence of one would read as highly standardised. `jaccard_bimodality` excludes
+empties for the same reason.)
+
 | Metric | Meaning | Good |
 |---|---|---|
-| `top1_pct` / `top3_pct` | % of tickets explained by the 1 / 3 most common patterns | high |
-| `n_patterns` | how many distinct patterns exist | low relative to `n_tickets` |
-| `pattern_entropy` | 0 = every ticket identical, 1 = every ticket unique | low |
+| `top1_pct` / `top3_pct` | % of **all** tickets explained by the 1 / 3 most common real routes (no-action tickets count as uncovered) | high |
+| `n_patterns` | how many distinct real routes exist | low relative to `n_tickets` |
+| `pattern_entropy` | spread of the real routes: 0 = every ticket-with-steps identical, 1 = every one unique | low |
 
 ### Action structure
 | Metric | Meaning | Good |

@@ -7,12 +7,14 @@ Writes results/scorecard.json, results/scorecard.csv, results/patterns.json
 
 Metrics per workflow
 --------------------
-Pattern concentration
-  n_patterns          distinct resolution patterns (a pattern = the set of
-                      (action,object) pairs in one ticket)
-  top1/top3/top5_pct  % of tickets explained by the N most common patterns
-  pattern_entropy     normalised Shannon entropy, 0 = every ticket identical,
-                      1 = every ticket unique
+Pattern concentration (measured over REAL routes only — tickets with no
+extractable action are excluded here and reported as pct_no_action instead)
+  n_patterns          distinct resolution patterns (a pattern = the ordered
+                      sequence of (action,object) pairs in one ticket)
+  top1/top3/top5_pct  % of ALL tickets explained by the N most common real
+                      routes (no-action tickets count as uncovered)
+  pattern_entropy     normalised Shannon entropy over real routes, 0 = every
+                      ticket-with-steps identical, 1 = every one unique
 
 Action structure
   n_distinct_pairs    how many different (action,object) pairs appear at all
@@ -84,7 +86,9 @@ def norm_entropy(counts: list[int], n_items: int) -> float:
         return 0.0
     total = sum(counts)
     h = -sum((c / total) * math.log(c / total) for c in counts if c)
-    return round(h / math.log(n_items), 3)
+    # `or 0.0` collapses negative zero (a single-pattern workflow gives h = -0.0)
+    # to a clean 0.0 so it doesn't serialise as "-0.0".
+    return round(h / math.log(n_items), 3) or 0.0
 
 
 def herfindahl(counts: list[int]) -> float:
@@ -119,11 +123,24 @@ def analyse(records: list[dict], phase_of: dict[str, str], rng: random.Random) -
     # "resolved but undescribed" marker
     has_marker = [any(s["action"] in STOPWORD_ACTIONS for s in r["steps"]) for r in records]
 
-    pat_counts = Counter(patterns)
+    # Pattern concentration is measured over REAL routes only. The empty pattern
+    # () — a ticket from which no action could be extracted — is not a resolution
+    # route; counting it here would let a poorly-documented workflow read as
+    # "highly standardised" (its #1 "route" being the absence of one) and would
+    # double-count a bucket already reported as pct_no_action. It is excluded from
+    # the ranking, top-k cover, distinct-pattern count and entropy; the no-action
+    # share is surfaced separately below. (jaccard_bimodality excludes empties too,
+    # for the same reason — see its comment.)
+    nonempty_pats = [p for p in patterns if p]
+    pat_counts = Counter(nonempty_pats)
     ranked_pats = pat_counts.most_common()
     pat_vals = [c for _, c in ranked_pats]
+    n_real = sum(pat_vals)  # tickets with >=1 real step
 
     def top_pct(k: int) -> float:
+        # Share of ALL tickets whose full route is one of the k most common real
+        # routes. Denominator is n (every ticket), so no-action tickets count as
+        # "not covered by any route" rather than as a route of their own.
         return round(sum(pat_vals[:k]) / n * 100, 1)
 
     pair_counts = Counter(p for ss in step_sets for p in ss)
@@ -188,7 +205,7 @@ def analyse(records: list[dict], phase_of: dict[str, str], rng: random.Random) -
         "top1_pct": top_pct(1),
         "top3_pct": top_pct(3),
         "top5_pct": top_pct(5),
-        "pattern_entropy": norm_entropy(pat_vals, n),
+        "pattern_entropy": norm_entropy(pat_vals, n_real),
         # action structure
         "n_distinct_pairs": len(pair_counts),
         "herfindahl": herfindahl(list(pair_counts.values())),
