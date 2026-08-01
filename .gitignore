@@ -15,7 +15,7 @@ results/raw/*
 # Visualization build artifacts — regenerable, and derived from the PII-bearing
 # .xls (they embed customer company names + effort aggregates). Rebuild with
 # `make explorer`.
-explorer.html
+distributional_shape_explorer.html
 merged_data.json
 
 # Python

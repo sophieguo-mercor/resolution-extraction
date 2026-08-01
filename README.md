@@ -3,7 +3,7 @@
 A full pipeline: it turns free-text ticket `Notes` into structured resolution steps,
 measures how consistently each workflow is actually resolved, and renders the result
 as a single self-contained **interactive HTML explorer**. Spreadsheet in,
-`explorer.html` out — `python run.py --xls data/<export>.xls` runs the whole thing.
+`distributional_shape_explorer.html` out — `python run.py --xls data/<export>.xls` runs the whole thing.
 
 The point: n-gram overlap tells you whether tickets use the same *words*. This tells
 you whether they follow the same *process*. Two agents writing "wachtwoord gereset"
@@ -32,7 +32,7 @@ data/*.xls  (SpreadsheetML export)
    │                  → merged_data.json                                     (run.py)
    │
    └─▶ 5. build       inject merged data into the React template                 [no API]
-                      → explorer.html                 (build_explorer.py + build_html.py)
+                      → distributional_shape_explorer.html                 (build_explorer.py + build_html.py)
 ```
 
 `python run.py --xls data/<export>.xls` runs all five. Only stage 2 spends money and
@@ -56,7 +56,7 @@ resolution-extraction/
 ├── prompts.py            prompt construction — tune this
 ├── extract.py            batch runner: notes → structured steps
 ├── aggregate.py          steps → per-workflow variance metrics
-├── run.py                end-to-end orchestrator: .xls → explorer.html
+├── run.py                end-to-end orchestrator: .xls → distributional_shape_explorer.html
 ├── build_explorer.py     the React/JSX explorer template (edit the UI here)
 ├── build_html.py         renders template + data → one self-contained .html
 ├── tests/
@@ -70,7 +70,7 @@ resolution-extraction/
     └── patterns.json
 ```
 
-Generated build artifacts — `explorer.html` and `merged_data.json` — are gitignored:
+Generated build artifacts — `distributional_shape_explorer.html` and `merged_data.json` — are gitignored:
 they're regenerable and derived from the PII-bearing `.xls` (they embed customer
 company names and effort aggregates), so they're treated as output, not source.
 
@@ -104,7 +104,7 @@ or point `--xls` somewhere else.
 ```bash
 python run.py --xls data/<export>.xls --dry-run   # show the plan, spend nothing
 python run.py --xls data/<export>.xls             # parse → extract → aggregate → build
-python run.py --html-only                         # rebuild explorer.html only, no API
+python run.py --html-only                         # rebuild distributional_shape_explorer.html only, no API
 ```
 
 `run.py` skips the extraction stage automatically when `results/scorecard.json`
@@ -124,7 +124,7 @@ make pilot                               # 60 tickets per workflow, ~4.4k reques
 make full                                # entire corpus, ~10.4k requests
 make collect                             # reconnect to an in-flight batch
 make aggregate                           # compute metrics
-make explorer                            # build explorer.html from existing results
+make explorer                            # build distributional_shape_explorer.html from existing results
 ```
 
 Or call the scripts directly:
@@ -150,7 +150,7 @@ python extract.py
 python aggregate.py
 
 # 7. Build the interactive explorer (parses the .xls for effort data, merges it
-#    with the metrics, writes explorer.html — no API spend)
+#    with the metrics, writes distributional_shape_explorer.html — no API spend)
 python run.py --html-only
 ```
 
@@ -253,7 +253,7 @@ A raw record:
 Stages 4–5 (`run.py`) join the effort data parsed from the `.xls` (AHT, first-response
 rate, effort distribution per workflow and per company) with the process-variance
 metrics from `scorecard.json` / `patterns.json`, and render a single self-contained
-`explorer.html` — an interactive React page that opens in any browser. Build it with
+`distributional_shape_explorer.html` — an interactive React page that opens in any browser. Build it with
 `make explorer` or `python run.py --html-only` (see [Run it](#run-it) for the commands).
 
 How the build works:
@@ -265,7 +265,7 @@ How the build works:
   the unpkg CDN (versions pinned). The JSON is embedded with `<` escaped to `<`
   so no data value can break out of the `<script>` block.
 - The output embeds **only aggregated metrics** — never raw ticket notes — but it does
-  carry customer company names and effort aggregates, so `explorer.html` and the
+  carry customer company names and effort aggregates, so `distributional_shape_explorer.html` and the
   intermediate `merged_data.json` are gitignored. Rebuild them anytime with `make explorer`.
 
 The page is self-contained apart from the two CDN `<script>` tags; to run fully

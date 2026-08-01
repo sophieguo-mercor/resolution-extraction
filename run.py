@@ -22,7 +22,7 @@ Stages
 2. extract     — send notes to Claude via the Batch API, write results/raw/*.jsonl
 3. aggregate   — compute process-variance metrics → scorecard.json, patterns.json
 4. merge       — join effort data + scorecard + patterns → merged_data.json
-5. build       — inject merged_data.json into HTML template → explorer.html
+5. build       — inject merged_data.json into HTML template → distributional_shape_explorer.html
 
 Extraction here uses this repo's Batch-API extract.py: it submits one batch,
 waits, then writes results. It is resume-safe — Ctrl-C and re-run to reconnect.
@@ -220,7 +220,7 @@ def main():
     ap.add_argument("--xls",        default="data/Time_entries_Mercor_v3_workflows_by_company__1_.xls")
     ap.add_argument("--scorecard",  default=None, help="skip extraction, use this scorecard.json")
     ap.add_argument("--patterns",   default=None, help="patterns.json (default: results/patterns.json)")
-    ap.add_argument("--out",        default="explorer.html")
+    ap.add_argument("--out",        default="distributional_shape_explorer.html")
     ap.add_argument("--results-dir",default="results")
     ap.add_argument("--sample",     type=int, default=0, help="tickets per workflow for LLM (0=all)")
     ap.add_argument("--html-only",  action="store_true", help="skip all extraction, just rebuild HTML")

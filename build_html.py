@@ -5,11 +5,11 @@ single self-contained HTML file that opens in any browser without a build
 tool, server, or internet connection (CDN assets are the one exception).
 
 Can be run standalone:
-    python build_html.py --data merged_data.json --out explorer.html
+    python build_html.py --data merged_data.json --out distributional_shape_explorer.html
 
 Or imported and called from run.py:
     import build_html
-    build_html.build(data_dict, "build_explorer.py", "explorer.html")
+    build_html.build(data_dict, "build_explorer.py", "distributional_shape_explorer.html")
 
 How it works
 ------------
@@ -146,7 +146,7 @@ def main():
     ap.add_argument("--data",     default="merged_data.json")
     ap.add_argument("--template", default="build_explorer.py",
                     help="path to build_explorer.py containing the JSX template")
-    ap.add_argument("--out",      default="explorer.html")
+    ap.add_argument("--out",      default="distributional_shape_explorer.html")
     args = ap.parse_args()
 
     if not Path(args.data).exists():

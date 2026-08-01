@@ -46,9 +46,9 @@ aggregate:
 	$(PYTHON) aggregate.py
 
 # Parse the .xls for effort data, join it with results/scorecard.json +
-# patterns.json, and render a single self-contained explorer.html. No API spend.
+# patterns.json, and render a single self-contained distributional_shape_explorer.html. No API spend.
 explorer:
-	$(PYTHON) run.py --html-only --xls "$(XLS)" --out explorer.html
+	$(PYTHON) run.py --html-only --xls "$(XLS)" --out distributional_shape_explorer.html
 
 clean:
 	rm -f results/scorecard.json results/scorecard.csv results/patterns.json
@@ -57,4 +57,4 @@ clean-all:
 	rm -f results/scorecard.json results/scorecard.csv results/patterns.json
 	rm -f results/batch_manifest.json
 	rm -f results/raw/*.jsonl
-	rm -f explorer.html merged_data.json
+	rm -f distributional_shape_explorer.html merged_data.json
