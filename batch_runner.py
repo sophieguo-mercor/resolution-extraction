@@ -229,13 +229,17 @@ class JsonlWriter:
             self._fh[wf] = path.open("a", encoding="utf-8")
         return self._fh[wf], self._done[wf]
 
-    def emit(self, stub: dict, steps: list) -> bool:
+    def emit(self, stub: dict, result) -> bool:
+        """Write one record. `result` is either a legacy steps list — stored as
+        {**stub, "steps": [...]} — or a full payload dict, merged as {**stub,
+        **result}. Both extractors share this sink; the dict form carries the
+        hybrid graph schema. Idempotent across re-runs (keyed on company+id)."""
         wf = stub["workflow"]
         fh, done = self._wf(wf)
         key = ticket_key(stub)
         if key in done:  # idempotent across re-runs
             return False
-        rec = {**stub, "steps": steps}
+        rec = {**stub, **result} if isinstance(result, dict) else {**stub, "steps": result}
         fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
         fh.flush()
         done.add(key)
@@ -246,12 +250,17 @@ class JsonlWriter:
             fh.close()
 
 
-def build_groups(by_wf, targets, args, raw_dir):
+def build_groups(by_wf, targets, args, raw_dir, empty_payload=None):
     """Local pre-pass: apply sampling + noise filter + resume-skip, emit freebies
     now, and return (groups, freebies_written).
 
     groups: {custom_id: {"workflow": wf, "tickets": [stub, ...], "notes": [str, ...]}}
+
+    `empty_payload` is what to write for a pre-filtered empty ticket: the default
+    (None -> []) reproduces the coded extractor's {"steps": []}; the graph
+    extractor passes a dict so empties get the hybrid record shape.
     """
+    empty = [] if empty_payload is None else empty_payload
     writer = JsonlWriter(raw_dir)
     groups: dict[str, dict] = {}
     counter = 0
@@ -268,7 +277,7 @@ def build_groups(by_wf, targets, args, raw_dir):
             if ticket_key(t) in done:
                 continue
             if is_probably_empty(t["notes"]):
-                if writer.emit(_stub(t), []):
+                if writer.emit(_stub(t), empty):
                     freebies_written += 1
             else:
                 todo.append(t)
@@ -299,8 +308,13 @@ def save_manifest(manifest_path: Path, batch_id: str, model: str, groups: dict) 
     )
 
 
-def collect(extractor, manifest_path: Path, raw_dir: Path, poll_interval: int):
-    """Poll an in-flight batch to completion, then route results to per-workflow JSONL."""
+def collect(extractor, manifest_path: Path, raw_dir: Path, poll_interval: int, empty_result=None):
+    """Poll an in-flight batch to completion, then route results to per-workflow JSONL.
+
+    `empty_result` is written for a position missing from a succeeded response
+    (default None -> [], the coded extractor's empty steps list; the graph
+    extractor passes its empty record dict)."""
+    empty = [] if empty_result is None else empty_result
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     batch_id = manifest["batch_id"]
     groups = manifest["groups"]
@@ -348,14 +362,14 @@ def collect(extractor, manifest_path: Path, raw_dir: Path, poll_interval: int):
 
         text = "".join(blk.text for blk in msg.content if blk.type == "text")
         try:
-            steps_by_pos = extractor.parse_result_text(text, len(stubs))
+            results_by_pos = extractor.parse_result_text(text, len(stubs))
         except Exception as e:
             bad_json += len(stubs)
             print(f"    ! {r.custom_id} bad JSON ({len(stubs)} tickets): {e} — will re-submit next run", flush=True)
             continue
 
         for pos, stub in enumerate(stubs):
-            if writer.emit(stub, steps_by_pos.get(pos, [])):
+            if writer.emit(stub, results_by_pos.get(pos, empty)):
                 written += 1
             else:
                 skipped += 1

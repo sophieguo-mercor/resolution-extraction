@@ -1,0 +1,49 @@
+{
+  "_comment": "Route B (decision-graph) vocabulary. Extends taxonomy.json — the step vocab (actions/objects/systems) is reused from there; this file adds the three axes a flowchart needs: the presenting problem (trigger), the condition that gates a branch (guard), and the terminal state (outcome). Each is coerced to these values during validation; unknown -> 'other' (guard -> null when none stated). Free-text intent/guard_detail/outcome_intent live alongside the coded values in the extracted record, not here.",
+
+  "triggers": {
+    "password_forgotten":      "User forgot a password or it expired",
+    "account_locked":          "Account locked out / too many bad sign-ins",
+    "login_failure":           "Cannot sign in for a reason other than a plain lockout",
+    "mfa_issue":               "MFA lost, new device, or not prompting",
+    "access_request":          "Request for access/permission to a resource",
+    "new_hire_onboarding":     "Provision a new starter (accounts, mailbox, licence)",
+    "offboarding":             "Disable/remove a leaver's access",
+    "license_request":         "Assign, change, or remove a licence",
+    "mailbox_access_request":  "Access to a shared or another user's mailbox",
+    "group_membership_change": "Add/remove a user from a group or distribution list",
+    "policy_change_request":   "Change a conditional-access / security / config policy",
+    "device_lifecycle_request":"Enrol, wipe, or retire a managed device",
+    "profile_update_request":  "Change a user attribute or profile field",
+    "recovery_key_request":    "Retrieve a BitLocker / recovery key",
+    "other":                   "A real trigger that fits nothing above"
+  },
+
+  "guards": {
+    "self_service_failed":  "Self-service / portal path did not work, needed manual action",
+    "hybrid_account":       "Account is synced/hybrid, so the change was needed in more than one directory",
+    "cloud_only_account":   "Account is cloud-only",
+    "still_failing":        "The attempted fix did not resolve it; issue persisted",
+    "resolved_after_action":"The action worked and the issue was resolved",
+    "no_customer_reply":    "Waiting on the customer / no response",
+    "awaiting_approval":    "Blocked pending manager or change approval",
+    "missing_info":         "Request lacked required detail; had to go back for it",
+    "resource_unavailable": "Needed licence/resource/key was not available",
+    "requires_escalation":  "Beyond first-line; handed to another team or vendor",
+    "account_not_found":    "The target account/object did not exist",
+    "other":                "A real branch condition that fits nothing above"
+  },
+
+  "outcomes": {
+    "resolved_first_contact": "Resolved in a single touch, no follow-up",
+    "resolved_after_followup":"Resolved, but only after further contact / a second session",
+    "reopened":               "Reopened or re-raised under another workflow after a failed fix",
+    "escalated_internal":     "Handed off to a colleague/team and left there",
+    "escalated_vendor":       "Raised with a supplier/third party and left there",
+    "customer_wait":          "Left waiting on the customer",
+    "awaiting_approval":      "Left pending an approval",
+    "resolved_unspecified":   "Notes say resolved but give no detail of what was done",
+    "no_action":              "Closed with no technical work (duplicate, out of scope, self-resolved)",
+    "other":                  "A real terminal state that fits nothing above"
+  }
+}
