@@ -169,6 +169,44 @@ def resolve_category(category: str, merged_data_path: str) -> list[str]:
     return wfs
 
 
+# ──────────────────────── batch size chunking ───────────────────────────────
+
+# Stay comfortably under the Message Batches 256 MB request-size limit. Each
+# request re-sends the (server-cached but still transmitted) system prompt +
+# few-shot + up to batch_size ticket notes, so a full corpus overflows one batch.
+BATCH_BYTES_BUDGET = 200_000_000
+
+
+def _b(s: str) -> int:
+    return len((s or "").encode("utf-8"))
+
+
+def estimate_request_bytes(system_prompt: str, fewshot_bytes: int, notes: list[str], char_limit: int) -> int:
+    body = _b(system_prompt) + fewshot_bytes + 512  # prompt + few-shot + envelope
+    for n in notes:
+        body += _b((n or "")[:char_limit]) + 64      # note + per-ticket framing
+    return body
+
+
+def chunk_by_bytes(cids: list[str], groups: dict, system_prompt: str, char_limit: int, budget: int) -> list[list[str]]:
+    """Greedily pack request groups into batches whose estimated serialized size
+    stays under `budget`. A single request over budget still gets its own chunk."""
+    fewshot_bytes = _b(json.dumps(GRAPH_FEW_SHOT, ensure_ascii=False))
+    chunks: list[list[str]] = []
+    cur: list[str] = []
+    cur_bytes = 0
+    for cid in cids:
+        sz = estimate_request_bytes(system_prompt, fewshot_bytes, groups[cid]["notes"], char_limit)
+        if cur and cur_bytes + sz > budget:
+            chunks.append(cur)
+            cur, cur_bytes = [], 0
+        cur.append(cid)
+        cur_bytes += sz
+    if cur:
+        chunks.append(cur)
+    return chunks
+
+
 # ──────────────────────────────── main ──────────────────────────────────────
 
 def main():
@@ -183,6 +221,8 @@ def main():
     ap.add_argument("--sample", type=int, default=0, help="tickets per workflow; 0 = all")
     ap.add_argument("--batch-size", type=int, default=12, help="tickets packed into one batch request")
     ap.add_argument("--char-limit", type=int, default=1500, help="max chars of notes per ticket")
+    ap.add_argument("--max-batch-bytes", type=int, default=BATCH_BYTES_BUDGET,
+                    help="split into multiple batches so each stays under this serialized size (256MB API limit)")
     ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--poll-interval", type=int, default=30, help="seconds between batch status checks")
@@ -212,12 +252,11 @@ def main():
         collect(new_extractor(), manifest_path, raw_dir, args.poll_interval, empty_result=GRAPH_EMPTY)
         return
 
-    # ── reconnect to an in-flight batch instead of double-spending ───────
+    # ── reconnect to an in-flight batch (an interrupted chunk) before submitting more ──
     if manifest_path.exists() and not args.force_new:
-        print(f"Found in-flight batch in {manifest_path} — resuming it.", flush=True)
-        print("  (use --force-new to discard it and submit a fresh batch)", flush=True)
+        print(f"Found in-flight batch in {manifest_path} — collecting it first.", flush=True)
         collect(new_extractor(), manifest_path, raw_dir, args.poll_interval, empty_result=GRAPH_EMPTY)
-        return
+        # fall through: build_groups below skips now-done tickets and submits the remaining chunks
 
     # ── build requests locally ───────────────────────────────────────────
     print(f"Loading {args.xls} …", flush=True)
@@ -262,24 +301,23 @@ def main():
         print("Nothing to submit — everything is already extracted or empty.", flush=True)
         return
 
-    if len(groups) > MAX_REQUESTS_PER_BATCH:
-        raise SystemExit(
-            f"{len(groups):,} requests exceeds the {MAX_REQUESTS_PER_BATCH:,}/batch limit. "
-            f"Narrow with --workflows / --category or --sample."
-        )
-
     extractor = new_extractor()
-    requests = [extractor.make_request(cid, g["notes"], args.char_limit) for cid, g in groups.items()]
-    print(f"Submitting batch of {len(requests):,} requests …", flush=True)
-    batch = extractor.client.messages.batches.create(requests=requests)
-    save_manifest(manifest_path, batch.id, args.model, groups)
-    print(f"  batch {batch.id}  status={batch.processing_status}  (manifest → {manifest_path})", flush=True)
-
-    if args.submit_only:
-        print("Submitted. Collect it later with:  python extract_graph.py --collect", flush=True)
-        return
-
-    collect(extractor, manifest_path, raw_dir, args.poll_interval, empty_result=GRAPH_EMPTY)
+    # Split into as many batches as needed to stay under the API's 256 MB limit,
+    # submitting and collecting each sequentially (resume-safe via the JSONL).
+    chunks = chunk_by_bytes(list(groups), groups, extractor.system_prompt,
+                            args.char_limit, args.max_batch_bytes)
+    print(f"Submitting {len(groups):,} requests in {len(chunks)} batch(es) …", flush=True)
+    for i, chunk in enumerate(chunks, 1):
+        if len(chunk) > MAX_REQUESTS_PER_BATCH:
+            raise SystemExit(f"chunk of {len(chunk):,} exceeds the {MAX_REQUESTS_PER_BATCH:,}-request cap.")
+        requests = [extractor.make_request(cid, groups[cid]["notes"], args.char_limit) for cid in chunk]
+        batch = extractor.client.messages.batches.create(requests=requests)
+        save_manifest(manifest_path, batch.id, args.model, {cid: groups[cid] for cid in chunk})
+        print(f"  batch {i}/{len(chunks)}: {batch.id}  ({len(requests):,} requests)  status={batch.processing_status}", flush=True)
+        if args.submit_only:
+            print("Submitted first chunk. --submit-only stops here; re-run to submit/collect the rest.", flush=True)
+            return
+        collect(extractor, manifest_path, raw_dir, args.poll_interval, empty_result=GRAPH_EMPTY)
 
 
 if __name__ == "__main__":
