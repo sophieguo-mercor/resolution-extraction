@@ -87,8 +87,14 @@ def mermaid_for(g: dict) -> str:
         s, d = nid(e["src"]), nid(e["dst"])
         lbl = edge_label(e)
         lines.append(f'  {s} -->|"{lbl}"| {d}' if lbl else f"  {s} --> {d}")
-    for e in g.get("drift", []):
-        lines.append(f'  {nid(e["src"])} -.-> {nid(e["dst"])}')
+
+    # Drift = the most common off-spine states, collapsed into one dashed
+    # "also seen" annotation (like the scoping deck), not a graph of rare edges.
+    drift = g.get("drift", [])
+    if drift:
+        items = ", ".join(humanize(d["key"]) for d in drift[:6])
+        lines.append(f'  DRIFT["Also seen: {mm(items, 90)}"]:::drift')
+        lines.append(f'  {nid("__start__")} -.-> DRIFT')
 
     lines.append("")
     lines.append(CLASSDEFS)

@@ -198,6 +198,25 @@ def build_graph(records: list[dict], phase_of: dict[str, str], drift_pct: float)
         node_list.insert(0, {"id": START, "cls": "trig", "phase": None,
                              "count": n, "pct": 100.0, "top_systems": [], "top_intents": []})
 
+    # ── prune to the legible spine ───────────────────────────────────────────
+    # At population scale a workflow has hundreds of distinct states and a long
+    # tail of thousands of sub-threshold transitions. Only the main-edge spine is
+    # renderable, so keep just the nodes it touches; the off-spine states collapse
+    # into a compact "also seen" drift summary (the most common ones), not a graph.
+    main_ids = {START}
+    for e in main_edges:
+        main_ids.add(e["src"])
+        main_ids.add(e["dst"])
+    spine_nodes = [nd for nd in node_list if nd["id"] in main_ids]
+
+    drift_summary = [
+        {"key": nd["id"], "count": nd["count"], "pct": nd["pct"], "top_intents": nd["top_intents"]}
+        for nd in node_list
+        if nd["id"] not in main_ids and nd["id"] != START and not nd["id"].startswith("out:")
+    ]
+    drift_summary.sort(key=lambda x: -x["count"])
+    drift_summary = drift_summary[:8]
+
     return {
         "n": n,
         "triggers": [{"trigger": t, "count": k, "pct": pct(k)} for t, k in trigger_counter.most_common()],
@@ -205,10 +224,12 @@ def build_graph(records: list[dict], phase_of: dict[str, str], drift_pct: float)
         "outcomes": [{"outcome": o, "count": k, "pct": pct(k)} for o, k in outcome_counter.most_common()],
         "outcome_intents": {o: [{"text": t, "count": k} for t, k in c.most_common(5)]
                             for o, c in outcome_intents.items()},
-        "nodes": node_list,
+        "nodes": spine_nodes,
         "edges": main_edges,
-        "drift": drift_edges,
-        "dropped_edges": len(drift_edges),
+        "drift": drift_summary,
+        "dropped_edges": len(drift_edges),   # count of sub-threshold transitions (informational)
+        "n_spine_nodes": len(spine_nodes),
+        "n_tail_nodes": len(node_list) - len(spine_nodes),
     }
 
 

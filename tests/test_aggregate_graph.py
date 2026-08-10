@@ -100,9 +100,11 @@ records2 += [rec([step("reset", "password"), step("inform_customer", "password")
 PHASE_OF["investigate"] = "diagnose"
 g2 = build_graph(records2, PHASE_OF, drift_pct=2.0)
 main = {(e["src"], e["dst"]) for e in g2["edges"]}
-drift = {(e["src"], e["dst"]) for e in g2["drift"]}
-assert ("reset:password", "investigate:user_account") in drift, "rare edge should be drift"
 assert ("reset:password", "investigate:user_account") not in main
-assert g2["dropped_edges"] == len(g2["drift"]) >= 1
+drift_keys = {d["key"] for d in g2["drift"]}
+assert "investigate:user_account" in drift_keys, "rare state should be summarised as drift"
+node_ids = {n["id"] for n in g2["nodes"]}
+assert "investigate:user_account" not in node_ids, "drift-only node should be pruned from the spine"
+assert g2["dropped_edges"] >= 1
 
 print("all assertions passed")

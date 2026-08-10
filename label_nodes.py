@@ -112,7 +112,7 @@ def collect_items(workflow: str, g: dict, min_coverage: float = 0.34):
         else:
             deterministic[node["id"]] = deterministic_label(g, node["id"])
 
-    for e in [*g.get("edges", []), *g.get("drift", [])]:
+    for e in g.get("edges", []):  # drift is a summary of states now, not labelled edges
         details = [d["text"] for d in e.get("top_guard_details", [])]
         guards = [d["guard"] for d in e.get("top_guards", [])]
         eid = f'{e["src"]}->{e["dst"]}'
@@ -149,20 +149,28 @@ def label_workflow(extractor, workflow: str, g: dict, cache: dict, max_tokens: i
             "branches": [{"id": it["id"], "primary": it["primary"], "others": it["others"]}
                          for it in to_send if it["kind"] == "branch"],
         }
-        msg = extractor.client.messages.create(
-            model=extractor.model,
-            max_tokens=max_tokens,
-            system=_cached_system(SYSTEM_PROMPT),
-            messages=[{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
-        )
-        text = "".join(b.text for b in msg.content if b.type == "text").strip()
-        text = re.sub(r"^```(?:json)?\s*", "", text)
-        text = re.sub(r"\s*```$", "", text)
-        parsed = json.loads(text)
-        returned = {**parsed.get("node_labels", {}), **parsed.get("branch_labels", {})}
+        # The LLM label is decorative; if the call fails or returns malformed/
+        # truncated JSON, fall back to the primary distilled phrase for each item
+        # rather than crashing the run. Counts/topology are already frozen.
+        returned = {}
+        try:
+            msg = extractor.client.messages.create(
+                model=extractor.model,
+                max_tokens=max_tokens,
+                system=_cached_system(SYSTEM_PROMPT),
+                messages=[{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+            )
+            text = "".join(b.text for b in msg.content if b.type == "text").strip()
+            text = re.sub(r"^```(?:json)?\s*", "", text)
+            text = re.sub(r"\s*```$", "", text)
+            parsed = json.loads(text)
+            returned = {**parsed.get("node_labels", {}), **parsed.get("branch_labels", {})}
+        except Exception as e:
+            print(f"  ! {workflow}: LLM labelling fell back to distilled text "
+                  f"({type(e).__name__}: {e})", flush=True)
         for it in to_send:
             lbl = returned.get(it["id"])
-            lbl = cap_words(lbl) if isinstance(lbl, str) and lbl.strip() else humanize(it["id"])
+            lbl = cap_words(lbl) if isinstance(lbl, str) and lbl.strip() else cap_words(it["primary"], 8)
             cache[it["sig"]] = lbl
             labels[it["id"]] = lbl
 
@@ -170,7 +178,7 @@ def label_workflow(extractor, workflow: str, g: dict, cache: dict, max_tokens: i
     for node in g["nodes"]:
         if node["id"] in labels:
             node["label"] = labels[node["id"]]
-    for e in [*g.get("edges", []), *g.get("drift", [])]:
+    for e in g.get("edges", []):
         eid = f'{e["src"]}->{e["dst"]}'
         if eid in labels:
             e["label"] = labels[eid]
@@ -184,7 +192,7 @@ def main():
     ap.add_argument("--out", default=None, help="default: overwrite --graph in place")
     ap.add_argument("--cache", default="results/label_cache.json")
     ap.add_argument("--model", default=DEFAULT_MODEL)
-    ap.add_argument("--max-tokens", type=int, default=2000)
+    ap.add_argument("--max-tokens", type=int, default=4000)
     ap.add_argument("--min-intent-coverage", type=float, default=0.34,
                     help="only summarise a node's intent when >= this share of its "
                          "occurrences carry one; else use a humanised label")
