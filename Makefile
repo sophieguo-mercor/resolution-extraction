@@ -21,7 +21,7 @@ help:
 	@echo "  make clean       delete computed metrics, keep raw extractions"
 	@echo "  make clean-all   delete everything in results/"
 	@echo ""
-	@echo "Route B — resolution decision flowcharts:"
+	@echo "Decision graph — resolution flowcharts:"
 	@echo "  make graph-dryrun     hybrid prompt + request estimate, no API spend"
 	@echo "  make graph-sample     hybrid extract N=$(N) from WF=\"$(WF)\""
 	@echo "  make graph-pilot      hybrid extract 60/workflow for CAT=\"$(CAT)\""
@@ -61,7 +61,7 @@ aggregate:
 explorer:
 	$(PYTHON) run.py --html-only --xls "$(XLS)" --out distributional_shape_explorer.html
 
-# ── Route B: resolution decision flowcharts ──────────────────────────────────
+# ── Decision graph: resolution flowcharts ────────────────────────────────────
 
 graph-dryrun:
 	$(PYTHON) extract_graph.py --xls "$(XLS)" --workflows "$(WF)" --sample $(N) --dry-run

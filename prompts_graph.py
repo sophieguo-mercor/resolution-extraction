@@ -1,6 +1,6 @@
 """Prompt construction for the hybrid (coded + free-text) resolution-graph extractor.
 
-Route B needs more than the ordered action:object:system steps that prompts.py
+The decision graph needs more than the ordered action:object:system steps that prompts.py
 produces. Per ticket it also captures:
   - a coded `trigger` (presenting problem) + a short free-text `trigger_intent`
   - an ordered `trace` where each step carries the coded triple PLUS a coded

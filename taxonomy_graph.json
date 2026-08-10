@@ -1,5 +1,5 @@
 {
-  "_comment": "Route B (decision-graph) vocabulary, covering all ~73 workflows across the 10 categories. The step vocab (actions/objects/systems) is reused from taxonomy.json; this file adds the presenting problem (trigger), the condition that gates a branch (guard), and the terminal state (outcome). Each is coerced during validation; unknown -> 'other' (guard -> null when none stated). Triggers are grouped by category in comments only — the extractor sees a flat name->description list. Free-text intent/guard_detail/outcome_intent carry the workflow-specific colour alongside these coded values.",
+  "_comment": "Decision-graph vocabulary, covering all ~73 workflows across the 10 categories. The step vocab (actions/objects/systems) is reused from taxonomy.json; this file adds the presenting problem (trigger), the condition that gates a branch (guard), and the terminal state (outcome). Each is coerced during validation; unknown -> 'other' (guard -> null when none stated). Triggers are grouped by category in comments only — the extractor sees a flat name->description list. Free-text intent/guard_detail/outcome_intent carry the workflow-specific colour alongside these coded values.",
 
   "triggers": {
     "password_forgotten":      "User forgot a password or it expired",

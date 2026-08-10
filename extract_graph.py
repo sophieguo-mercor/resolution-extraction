@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Hybrid resolution-graph extraction (Route B).
+Hybrid decision-graph extraction (coded + free-text traces).
 
 Same Anthropic Batch-API machinery as extract.py (shared via batch_runner.py),
 but the per-ticket schema is a SUPERSET of the coded one: alongside the ordered

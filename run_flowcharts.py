@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-End-to-end Route B pipeline: spreadsheet → resolution decision flowcharts.
+End-to-end decision-graph pipeline: spreadsheet → resolution decision flowcharts.
 
 Stages
 ------

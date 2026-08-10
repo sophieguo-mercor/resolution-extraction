@@ -370,13 +370,13 @@ but tight process means the same procedure sometimes hits a hard case (add triag
 
 ---
 
-## Route B — Resolution decision flowcharts
+## The decision graph — resolution flowcharts
 
 A second pipeline over the same notes that renders, per workflow, a **decision
 flowchart** — trigger → action spine → decision branches → outcomes — where every
 node, branch, and percentage is a population-wide rollup. Where the explorer above
-answers *"how consistent is this workflow?"*, Route B answers *"what is the actual
-resolution procedure, and where does it branch?"*.
+answers *"how consistent is this workflow?"*, the decision graph answers *"what is
+the actual resolution procedure, and where does it branch?"*.
 
 ```
 data/*.xls

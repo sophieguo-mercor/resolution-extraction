@@ -191,7 +191,7 @@ def build(graphs: dict, merged: dict, out_path: str) -> None:
 <title>Resolution Decision Flows</title>
 <style>{PAGE_CSS}</style></head><body>
 <header class="mast"><div class="mast-in">
-<p class="eyebrow">TechOne · Route B</p>
+<p class="eyebrow">TechOne · Decision Graph</p>
 <h1>Resolution decision flows</h1>
 <div class="tally">
   <div><b>{len(graphs)}</b><span>workflows</span></div>
