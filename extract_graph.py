@@ -114,6 +114,10 @@ class GraphExtractor(BaseBatchExtractor):
             out.append({
                 "guard": g,
                 "guard_detail": self._clean_text(s.get("guard_detail")),
+                # the decision axis: question the agent resolved + this ticket's answer.
+                # Word-capped like every free-text field so no raw note can leak through.
+                "decision_q": self._clean_text(s.get("decision_q"), max_words=10),
+                "decision_a": self._clean_text(s.get("decision_a"), max_words=8),
                 "action": self._coerce(s.get("action"), self.valid_actions, "other"),
                 "object": self._coerce(s.get("object"), self.valid_objects, "other"),
                 "system": self._coerce(s.get("system", "unknown"), self.valid_systems, "unknown"),

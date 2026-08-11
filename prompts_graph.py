@@ -4,8 +4,10 @@ The decision graph needs more than the ordered action:object:system steps that p
 produces. Per ticket it also captures:
   - a coded `trigger` (presenting problem) + a short free-text `trigger_intent`
   - an ordered `trace` where each step carries the coded triple PLUS a coded
-    `guard` (the condition that gated it, or null) and two short free-text fields
-    (`guard_detail`, `intent`) for the workflow-specific colour
+    `guard` (the condition that gated it, or null), the decision the agent
+    resolved at that step (`decision_q` question + `decision_a` answer, in
+    English, or null when the step is not a decision point), and two short
+    free-text fields (`guard_detail`, `intent`) for the workflow-specific colour
   - a coded `outcome` (terminal state) + a short free-text `outcome_intent`
 
 The coded axes are what aggregate_graph.py counts (so branch percentages stay
@@ -28,6 +30,14 @@ from prompts import FEW_SHOT, build_user_message  # reuse note-packing + few-sho
 _FREETEXT_RULE = (
     "a SHORT phrase (<=10 words) naming the workflow-specific detail — NOT a "
     "restatement of the coded value. Use null when there is nothing to add. "
+    "NEVER include personal names, email addresses, phone numbers, or credentials."
+)
+
+# decision_q / decision_a are the DECISION AXIS: the question the agent resolved and
+# the answer this ticket gave. They are normalized downstream into decision diamonds,
+# so they must be in one language (English) and carry no PII, just like every free-text field.
+_DECISION_RULE = (
+    "Write it in ENGLISH even when the notes are Dutch. "
     "NEVER include personal names, email addresses, phone numbers, or credentials."
 )
 
@@ -62,6 +72,15 @@ the resolution is the full set of actions across every session.
        so set one whenever the notes explain WHY a path was taken (e.g. self-service failed,
        account is hybrid, the first fix still failed).
      - `guard_detail` - {_FREETEXT_RULE}
+     - `decision_q` - when a judgement or check decided what to do next, the QUESTION the
+       agent effectively answered here, as a short yes/no-style question (<=10 words), e.g.
+       "did the self-service reset work?", "is the account hybrid-synced?",
+       "is the device online after a reboot?". This is the decision axis that lets branches
+       cluster, so set one whenever the step reflects a real fork. Use null when this step
+       was not a decision point. {_DECISION_RULE}
+     - `decision_a` - THIS ticket's answer to that decision_q (<=8 words), e.g.
+       "no, reset manually", "yes, back online", "false positive". Use null whenever
+       decision_q is null. {_DECISION_RULE}
      - `intent` - {_FREETEXT_RULE}
 3. `outcome` - the terminal state of the ticket (one coded value below).
 4. `trigger_intent`, `outcome_intent` - each {_FREETEXT_RULE}
@@ -99,12 +118,13 @@ the interesting part. Example: reset in M365 AND reset in local AD AND a sync ar
 Return ONLY a JSON array. One object per input ticket, in the same order, no markdown fences, no prose.
 
 [{{"id": 0, "trigger": "...", "trigger_intent": null,
-   "trace": [{{"guard": null, "guard_detail": null, "action": "...", "object": "...", "system": "...", "intent": null}}],
+   "trace": [{{"guard": null, "guard_detail": null, "decision_q": null, "decision_a": null, "action": "...", "object": "...", "system": "...", "intent": null}}],
    "outcome": "...", "outcome_intent": null}}, ...]
 
 - `action` / `object` / `system` MUST be exactly one of the vocab values below ("unknown" system when unstated).
 - `trigger` MUST be one of the trigger values; `outcome` MUST be one of the outcome values.
 - `guard` MUST be one of the guard values OR null.
+- `decision_q` / `decision_a` are English free text or null; set them together (both, or neither).
 - Emit at most 8 trace steps per ticket. If there are more, keep the 8 most substantive.
 
 ## Allowed actions
@@ -141,16 +161,21 @@ GRAPH_FEW_SHOT = [
                     "trigger_intent": None,
                     "trace": [
                         {"guard": None, "guard_detail": None,
+                         "decision_q": None, "decision_a": None,
                          "action": "contact_customer", "object": "user_account", "system": "unknown",
                          "intent": "remote session with the user"},
                         {"guard": None, "guard_detail": None,
+                         "decision_q": None, "decision_a": None,
                          "action": "reset", "object": "password", "system": "m365_admin", "intent": None},
                         {"guard": "hybrid_account", "guard_detail": "synced account needs both directories",
+                         "decision_q": "is the account hybrid-synced?", "decision_a": "yes, also reset in local AD",
                          "action": "reset", "object": "password", "system": "active_directory", "intent": None},
                         {"guard": None, "guard_detail": None,
+                         "decision_q": None, "decision_a": None,
                          "action": "sync", "object": "user_account", "system": "active_directory",
                          "intent": "forced directory sync"},
                         {"guard": None, "guard_detail": None,
+                         "decision_q": None, "decision_a": None,
                          "action": "inform_customer", "object": "password", "system": "unknown",
                          "intent": "left new password on the laptop"},
                     ],
@@ -165,14 +190,18 @@ GRAPH_FEW_SHOT = [
                     "trigger_intent": "backup failing, disk full on D:",
                     "trace": [
                         {"guard": None, "guard_detail": None,
+                         "decision_q": "where is the bottleneck?", "decision_a": "disk full on D:",
                          "action": "investigate", "object": "disk_space", "system": "on_prem_server", "intent": None},
                         {"guard": None, "guard_detail": None,
+                         "decision_q": None, "decision_a": None,
                          "action": "clean_up", "object": "disk_space", "system": "on_prem_server",
                          "intent": "cleared VSS shadow copies on D:"},
                         {"guard": None, "guard_detail": None,
+                         "decision_q": None, "decision_a": None,
                          "action": "run_backup", "object": "backup_job", "system": "backup_tool",
                          "intent": "manually restarted the job"},
                         {"guard": "resolved_after_action", "guard_detail": None,
+                         "decision_q": "did the backup succeed after cleanup?", "decision_a": "yes, confirmed successful",
                          "action": "verify", "object": "backup_job", "system": "backup_tool",
                          "intent": "confirmed the backup succeeded"},
                     ],
@@ -184,6 +213,7 @@ GRAPH_FEW_SHOT = [
                     "trigger": "other", "trigger_intent": "dark-web credential alert",
                     "trace": [
                         {"guard": None, "guard_detail": None,
+                         "decision_q": "were any credentials exposed?", "decision_a": "no, alert benign",
                          "action": "triage", "object": "security_alert", "system": "unknown",
                          "intent": "no credentials found"},
                     ],
@@ -194,6 +224,7 @@ GRAPH_FEW_SHOT = [
                     "trigger": "other", "trigger_intent": "compliance report review",
                     "trace": [
                         {"guard": None, "guard_detail": None,
+                         "decision_q": "any related incidents?", "decision_a": "no, report clean",
                          "action": "triage", "object": "compliance_report", "system": "unknown",
                          "intent": "no related incidents"},
                     ],
@@ -204,6 +235,7 @@ GRAPH_FEW_SHOT = [
                     "trigger": "other", "trigger_intent": None,
                     "trace": [
                         {"guard": None, "guard_detail": None,
+                         "decision_q": None, "decision_a": None,
                          "action": "resolve_unspecified", "object": "other", "system": "unknown", "intent": None},
                     ],
                     "outcome": "resolved_unspecified", "outcome_intent": None,
@@ -213,6 +245,7 @@ GRAPH_FEW_SHOT = [
                     "trigger": "other", "trigger_intent": "certificate nearing expiry",
                     "trace": [
                         {"guard": None, "guard_detail": None,
+                         "decision_q": None, "decision_a": None,
                          "action": "renew", "object": "ssl_certificate", "system": "unknown", "intent": None},
                     ],
                     "outcome": "resolved_first_contact", "outcome_intent": None,
@@ -222,6 +255,7 @@ GRAPH_FEW_SHOT = [
                     "trigger": "other", "trigger_intent": "security-awareness onboarding",
                     "trace": [
                         {"guard": None, "guard_detail": None,
+                         "decision_q": None, "decision_a": None,
                          "action": "conduct_training", "object": "security_training", "system": "knowbe4", "intent": None},
                     ],
                     "outcome": "resolved_first_contact", "outcome_intent": None,

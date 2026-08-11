@@ -37,10 +37,15 @@ model_reply = json.dumps([
         "trigger_intent": "  locked out over the weekend  ",
         "trace": [
             {"guard": "hybrid_account", "guard_detail": "synced account",
+             "decision_q": "is the account hybrid-synced?", "decision_a": "yes, reset in AD",
              "action": "reset", "object": "password", "system": "active_directory", "intent": "manual AD reset"},
             {"guard": "NONSENSE_GUARD", "guard_detail": None,
+             "decision_q": "one two three four five six seven eight nine ten eleven twelve",
+             "decision_a": "one two three four five six seven eight nine ten",
              "action": "frobnicate", "object": "widget", "system": "mainframe",
              "intent": "one two three four five six seven eight nine ten eleven twelve thirteen fourteen"},
+            {"guard": None, "guard_detail": None,
+             "action": "verify", "object": "user_account", "system": "unknown", "intent": None},
         ],
         "outcome": "resolved_first_contact",
         "outcome_intent": None,
@@ -56,18 +61,26 @@ assert set(res.keys()) == {0, 1}, f"id bounds not enforced: {res.keys()}"
 r0 = res[0]
 assert r0["trigger"] == "password_forgotten"
 assert r0["trigger_intent"] == "locked out over the weekend", "free text not trimmed"
-# step 1: valid coded values kept, guard kept
+# step 1: valid coded values kept, guard kept, decision pair carried through
 s1 = r0["trace"][0]
 assert (s1["action"], s1["object"], s1["system"], s1["guard"]) == ("reset", "password", "active_directory", "hybrid_account")
-# step 2: unknown coded values coerced, unknown guard -> "other", intent capped to 12 words
+assert s1["decision_q"] == "is the account hybrid-synced?", s1["decision_q"]
+assert s1["decision_a"] == "yes, reset in AD", s1["decision_a"]
+# step 2: unknown coded values coerced, unknown guard -> "other", free text capped
 s2 = r0["trace"][1]
 assert (s2["action"], s2["object"], s2["system"]) == ("other", "other", "unknown"), s2
 assert s2["guard"] == "other", s2["guard"]
 assert len(s2["intent"].split()) == 12, f"intent not capped: {s2['intent']!r}"
-# derived coded steps mirror the trace triples, no free text
+assert len(s2["decision_q"].split()) == 10, f"decision_q not capped to 10: {s2['decision_q']!r}"
+assert len(s2["decision_a"].split()) == 8, f"decision_a not capped to 8: {s2['decision_a']!r}"
+# step 3: decision keys absent in the model reply -> default to None (not KeyError)
+s3 = r0["trace"][2]
+assert s3["decision_q"] is None and s3["decision_a"] is None, s3
+# derived coded steps mirror the trace triples, no free text (no decision fields)
 assert r0["steps"] == [
     {"action": "reset", "object": "password", "system": "active_directory"},
     {"action": "other", "object": "other", "system": "unknown"},
+    {"action": "verify", "object": "user_account", "system": "unknown"},
 ], r0["steps"]
 
 r1 = res[1]
