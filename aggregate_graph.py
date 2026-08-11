@@ -68,7 +68,8 @@ def canonical_sequence(trace: list[dict]):
     return seq, retries
 
 
-def build_graph(records: list[dict], phase_of: dict[str, str], drift_pct: float) -> dict:
+def build_graph(records: list[dict], phase_of: dict[str, str], drift_pct: float,
+                guard_dec: bool = True) -> dict:
     n = len(records)
     nodes: dict[str, dict] = {}
     edges: dict[tuple[str, str], dict] = {}
@@ -181,7 +182,12 @@ def build_graph(records: list[dict], phase_of: dict[str, str], drift_pct: float)
             # a decision node genuinely branches (>=2 forward routes) AND at least
             # one of those routes was gated by a recovered guard — otherwise it is
             # just an action whose tickets happened to end in different outcomes.
-            cls = "dec" if (main_out_degree.get(key, 0) >= 2 and key in guarded_out) else "act"
+            # When decisions.json drives classification (guard_dec=False), every
+            # non-terminal node starts as `act`; overlay_decisions() promotes the
+            # discovered decisions to `dec` with their canonical question label.
+            cls = "act"
+            if guard_dec and main_out_degree.get(key, 0) >= 2 and key in guarded_out:
+                cls = "dec"
         node_list.append({
             "id": key,
             "cls": cls,
@@ -233,6 +239,42 @@ def build_graph(records: list[dict], phase_of: dict[str, str], drift_pct: float)
     }
 
 
+# ─────────────────────── decision overlay (Stage 3) ─────────────────────────
+
+def overlay_decisions(graph: dict, dwf: dict | None) -> tuple[int, int, int]:
+    """Promote the discovered decisions (normalize_decisions.py) onto the DFG spine.
+
+    Each decision's `coded_context` node becomes a `dec` diamond labelled with the
+    canonical question; each branch labels the matching out-edge with the canonical
+    answer. Counts stay the DFG's population-true ticket tallies — the overlay only
+    reclassifies and relabels. Returns (decisions_matched, decisions_unplaced,
+    branches_matched) for reporting.
+    """
+    if not dwf:
+        return (0, 0, 0)
+    nodes_by_id = {nd["id"]: nd for nd in graph["nodes"]}
+    edges_by = {(e["src"], e["dst"]): e for e in graph["edges"]}
+    matched = unplaced = branches = 0
+    for d in dwf.get("decisions", []):
+        nd = nodes_by_id.get(d["coded_context"])
+        if nd is None:
+            # the decision sits on a state that fell below the spine threshold —
+            # its branches are in the drift tail, not renderable as a diamond here.
+            unplaced += 1
+            continue
+        nd["cls"] = "dec"
+        nd["label"] = d["canonical_q"]
+        nd["decision_support"] = d["support"]
+        matched += 1
+        for b in d.get("branches", []):
+            e = edges_by.get((d["coded_context"], b["next_hint"]))
+            if e is not None:
+                e["label"] = b["canonical_a"]
+                e["branch_support"] = b["support"]
+                branches += 1
+    return matched, unplaced, branches
+
+
 # ────────────────────────────────── main ────────────────────────────────────
 
 def load_records(raw_dir: Path) -> dict[str, list[dict]]:
@@ -269,6 +311,8 @@ def main():
     ap.add_argument("--raw-dir", default="results/graph_raw")
     ap.add_argument("--taxonomy", default="taxonomy.json")
     ap.add_argument("--out", default="results/graph.json")
+    ap.add_argument("--decisions", default="results/decisions.json",
+                    help="canonical decisions from normalize_decisions.py; overlaid as diamonds when present")
     ap.add_argument("--min-tickets", type=int, default=20)
     ap.add_argument("--drift-pct", type=float, default=2.0, help="edges below this %% of tickets become dashed 'drift'")
     args = ap.parse_args()
@@ -278,15 +322,31 @@ def main():
 
     by_wf = load_records(Path(args.raw_dir))
 
+    # When decisions.json is present it is authoritative for which nodes are
+    # decisions (guard_dec=False disables the older out-degree+guard heuristic).
+    dpath = Path(args.decisions)
+    decisions = json.loads(dpath.read_text(encoding="utf-8")) if dpath.exists() else None
+
     graphs = {}
+    overlay_tally = [0, 0, 0]
     for wf, recs in by_wf.items():
         if len(recs) < args.min_tickets:
             print(f"  skip (only {len(recs)} tickets): {wf}")
             continue
-        graphs[wf] = build_graph(recs, phase_of, args.drift_pct)
+        g = build_graph(recs, phase_of, args.drift_pct, guard_dec=(decisions is None))
+        if decisions is not None:
+            m, u, b = overlay_decisions(g, decisions.get(wf))
+            overlay_tally[0] += m
+            overlay_tally[1] += u
+            overlay_tally[2] += b
+        graphs[wf] = g
 
     if not graphs:
         raise SystemExit("Nothing met --min-tickets.")
+
+    if decisions is not None:
+        print(f"  decisions overlaid: {overlay_tally[0]} diamonds placed, "
+              f"{overlay_tally[1]} unplaced (in drift), {overlay_tally[2]} branches labelled")
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
