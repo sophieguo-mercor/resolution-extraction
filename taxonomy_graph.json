@@ -1,0 +1,106 @@
+{
+  "_comment": "Decision-graph vocabulary, covering all ~73 workflows across the 10 categories. The step vocab (actions/objects/systems) is reused from taxonomy.json; this file adds the presenting problem (trigger), the condition that gates a branch (guard), and the terminal state (outcome). Each is coerced during validation; unknown -> 'other' (guard -> null when none stated). Triggers are grouped by category in comments only — the extractor sees a flat name->description list. Free-text intent/guard_detail/outcome_intent carry the workflow-specific colour alongside these coded values.",
+
+  "triggers": {
+    "password_forgotten":      "User forgot a password or it expired",
+    "account_locked":          "Account locked out / too many bad sign-ins",
+    "login_failure":           "Cannot sign in for a reason other than a plain lockout",
+    "mfa_issue":               "MFA lost, new device, or not prompting",
+    "access_request":          "Request for access/permission to a resource",
+    "new_hire_onboarding":     "Provision a new starter (accounts, mailbox, licence)",
+    "offboarding":             "Disable/remove a leaver's access",
+    "license_request":         "Assign, change, or remove a licence",
+    "mailbox_access_request":  "Access to a shared or another user's mailbox",
+    "group_membership_change": "Add/remove a user from a group or distribution list",
+    "policy_change_request":   "Change a conditional-access / security / config policy",
+    "device_lifecycle_request":"Enrol, wipe, or retire a managed device",
+    "profile_update_request":  "Change a user attribute or profile field",
+    "recovery_key_request":    "Retrieve a BitLocker / recovery key",
+
+    "monitoring_alert":        "Automated RMM / health / uptime / third-party monitoring alert fired",
+    "disk_space_alert":        "Low disk / storage space alert",
+    "backup_failure":          "Backup job failed, needs restore, or a backup status check",
+    "certificate_expiry":      "SSL / domain certificate expiring or needs renewal",
+    "server_maintenance":      "Scheduled maintenance, patching, or planned server work",
+    "server_provisioning":     "New server / VPS / hosting build or service request",
+    "performance_degradation": "Slowness or high CPU/memory/resource on a device or server",
+    "service_outage":          "A service, server, or system is down / not responding",
+
+    "security_alert":          "Security alert to triage (EDR/XDR/MDR, identity-threat, malware, dark-web)",
+    "phishing_report":         "Suspicious / phishing email reported by a user",
+    "vulnerability_finding":   "Vulnerability scan result needing remediation",
+    "compliance_review":       "Security-control check, compliance report, or monitoring review",
+    "security_incident":       "Confirmed breach / compromise / incident response",
+    "spam_management":         "Spam filter change or quarantine release",
+    "awareness_training":      "Security-awareness training request or campaign",
+    "client_onboarding":       "Onboard a new managed client / tenant (MSSP)",
+
+    "hardware_fault":          "Workstation, laptop, or peripheral hardware not working",
+    "software_issue":          "Application error, crash, or general software support",
+    "procurement_request":     "Request to buy / install hardware or software",
+    "peripheral_setup":        "Set up a monitor, dock, mouse, or other peripheral",
+    "print_issue":             "Printer setup, configuration, or not printing",
+    "workplace_setup":         "New-employee workplace setup (device + accounts together)",
+
+    "mailbox_management":      "Exchange mailbox administration (create/configure a mailbox)",
+    "collaboration_support":   "SharePoint or Teams support / configuration",
+    "signature_request":       "Email signature creation or change",
+    "autoreply_request":       "Vacation / out-of-office auto-reply setup",
+    "tenant_config":           "M365 tenant-level configuration or support",
+
+    "telephony_issue":         "Telephony platform support or configuration",
+    "call_flow_change":        "Call-flow / IVR configuration change",
+    "number_change":           "Phone number / extension / operator change",
+    "sim_provisioning":        "Mobile phone / SIM provisioning",
+
+    "connectivity_issue":      "Network / internet / WiFi connectivity or performance problem",
+    "firewall_config":         "Router or firewall configuration / troubleshooting",
+    "switch_config":           "Network switch configuration / troubleshooting",
+    "vpn_issue":               "VPN setup or connection troubleshooting",
+
+    "change_request":          "Non-standard / custom change request",
+    "invoicing_request":       "Administrative / billing / invoicing request",
+    "project_work":            "Scoped project work",
+    "sales_quote":             "Sales quote or pricing request",
+    "presales_inquiry":        "Pre-sales / consultation / general information request",
+    "account_inquiry":         "General account inquiry or fault report",
+
+    "unclassified":            "Catch-all: long-tail, untagged, or unclassifiable ticket",
+    "other":                   "A real trigger that fits nothing above"
+  },
+
+  "guards": {
+    "self_service_failed":  "Self-service / portal path did not work, needed manual action",
+    "hybrid_account":       "Account is synced/hybrid, so the change was needed in more than one directory",
+    "cloud_only_account":   "Account is cloud-only",
+    "still_failing":        "The attempted fix did not resolve it; issue persisted",
+    "resolved_after_action":"The action worked and the issue was resolved",
+    "no_customer_reply":    "Waiting on the customer / no response",
+    "awaiting_approval":    "Blocked pending manager or change approval",
+    "missing_info":         "Request lacked required detail; had to go back for it",
+    "resource_unavailable": "Needed licence/resource/key was not available",
+    "requires_escalation":  "Beyond first-line; handed to another team or vendor",
+    "account_not_found":    "The target account/object did not exist",
+    "false_positive":       "Alert/finding assessed as benign or a false positive",
+    "confirmed_threat":     "Alert/finding assessed as a genuine threat needing action",
+    "reboot_resolved":      "A restart / reboot cleared the issue",
+    "config_error_found":   "A misconfiguration was identified as the cause",
+    "out_of_scope":         "Not this team's responsibility / outside the contract",
+    "other":                "A real branch condition that fits nothing above"
+  },
+
+  "outcomes": {
+    "resolved_first_contact": "Resolved in a single touch, no follow-up",
+    "resolved_after_followup":"Resolved, but only after further contact / a second session",
+    "reopened":               "Reopened or re-raised under another workflow after a failed fix",
+    "escalated_internal":     "Handed off to a colleague/team and left there",
+    "escalated_vendor":       "Raised with a supplier/third party and left there",
+    "customer_wait":          "Left waiting on the customer",
+    "awaiting_approval":      "Left pending an approval",
+    "monitored":              "Left running / under observation to confirm it does not recur",
+    "dismissed_false_positive":"Alert/report reviewed and dispositioned as benign; no action needed",
+    "resolved_unspecified":   "Notes say resolved but give no detail of what was done",
+    "no_action":              "Closed with no technical work (duplicate, out of scope, self-resolved)",
+    "other":                  "A real terminal state that fits nothing above"
+  }
+}

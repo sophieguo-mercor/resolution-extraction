@@ -16,6 +16,7 @@ results/raw/*
 # .xls (they embed customer company names + effort aggregates). Rebuild with
 # `make explorer`.
 distributional_shape_explorer.html
+workflow_flowcharts.html
 merged_data.json
 
 # Python

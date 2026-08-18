@@ -52,17 +52,19 @@
   },
 
   "objects": [
-    "password", "mfa_method", "user_account", "admin_account", "service_account",
+    "password", "mfa_method", "recovery_key", "user_account", "admin_account", "service_account",
     "mailbox", "shared_mailbox", "distribution_group", "security_group",
     "license", "permissions", "folder_share", "sharepoint_site", "teams_channel",
     "device_laptop", "device_desktop", "device_mobile", "printer", "peripheral",
     "server", "virtual_machine", "avd_session", "application", "driver",
-    "os_patch", "firmware", "vpn", "firewall_rule", "network_switch", "wifi_ap",
+    "os_patch", "firmware", "vpn", "network", "firewall_rule", "network_switch", "wifi_ap",
     "dns_record", "ssl_certificate", "domain_name",
-    "backup_job", "disk_space", "email_rule", "spam_filter", "email_message",
-    "phone_extension", "call_flow", "sim_card",
+    "backup_job", "disk_space", "storage_volume", "email_rule", "spam_filter", "email_message",
+    "email_signature", "auto_reply", "phone_extension", "call_flow", "sim_card",
     "security_alert", "monitoring_alert", "compliance_report", "security_training",
-    "policy", "other"
+    "vulnerability", "policy", "gpo",
+    "service", "scheduled_task", "database", "website", "software_update",
+    "tenant", "report", "quote", "invoice", "project", "contact", "other"
   ],
 
   "systems": [

@@ -367,3 +367,48 @@ but tight process means the same procedure sometimes hits a hard case (add triag
 - **`pct_no_action` conflates two things:** tickets with genuinely no work, and
   tickets whose notes were too terse to extract from. Check a few by hand before
   reading it as a finding.
+
+---
+
+## The decision graph — resolution flowcharts
+
+A second pipeline over the same notes that renders, per workflow, a **decision
+flowchart** — trigger → action spine → decision branches → outcomes — where every
+node, branch, and percentage is a population-wide rollup. Where the explorer above
+answers *"how consistent is this workflow?"*, the decision graph answers *"what is
+the actual resolution procedure, and where does it branch?"*.
+
+```
+data/*.xls
+   ├─▶ 1. parse         effort/category metrics                     (run.py)
+   ├─▶ 2. extract_graph notes → hybrid traces (coded + free-text)   [Batch API]
+   ├─▶ 3. aggregate     traces → per-workflow decision graph        (aggregate_graph.py)
+   ├─▶ 4. label         LLM node/branch display labels              [cheap, cached]
+   └─▶ 5. build         graph → workflow_flowcharts.html            (build_flowcharts.py)
+```
+
+`python run_flowcharts.py --category "Identity & Access"` runs all five;
+`--html-only` rebuilds the HTML with no API spend. Makefile: `make graph-dryrun`,
+`graph-sample`, `graph-pilot`, `graph-html`.
+
+**Hybrid schema.** `extract_graph.py` captures a superset of the coded steps: a
+`trigger`, an ordered `trace` where each step carries the coded `action:object:system`
+plus a coded branch `guard` and short free-text `intent`/`guard_detail`, and a terminal
+`outcome`. The coded axes drive counts and topology (so percentages are real); the
+free-text axes are distilled, word-capped colour that `label_nodes.py` summarises into
+display labels — they never touch a count. Vocab lives in `taxonomy_graph.json`
+(triggers/guards/outcomes) on top of `taxonomy.json`.
+
+**Directly-follows graph.** `aggregate_graph.py` builds a transition graph, infers a
+decision node where tickets diverge on a recovered guard, prunes to the legible spine,
+and collapses the long tail of rare states into a compact "also seen" drift summary
+(edges below `--drift-pct`, default 2%). Guarded retries render as self-loops.
+
+**Cost & reuse.** Extraction is the only substantial spend and is a one-time cost —
+the Identity & Access run (32,766 tickets, ~2,700 batch requests) cost ~$57 on the
+Batch API. Once `results/graph_raw/` is populated, `make graph-html` regenerates the
+graphs and HTML for free (labelling is cached in `results/label_cache.json`), so
+threshold/style iteration costs nothing.
+
+`workflow_flowcharts.html` and `results/` are gitignored — regenerable, and derived
+from the PII-bearing `.xls`.
